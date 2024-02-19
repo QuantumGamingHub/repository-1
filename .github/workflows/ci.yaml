@@ -55,10 +55,9 @@ jobs:
       - uses: actions/create-github-app-token@v1
         id: app-token
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: "QuantumGamingHub/repository-2"
 
       - name: ⬇️ Checkout GitOps repository
         uses: actions/checkout@v4
