@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'sandbox'
+        type: choice
+        options:
+          - sandbox
+          - staging
+          - production
+      ref:
+        description: 'Branch or tag to deploy'
+        required: false
+        default: 'main'
+        type: string
+
+
+jobs:
+  build:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      metadata: ${{ steps.metadata.outputs }}
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: 🏷️ Image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: test
+          tags: |
+            type=sha
+
+  deploy:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "QuantumGamingHub/repository-2"
+
+      - name: ⬇️ Checkout GitOps repository
+        uses: actions/checkout@v4
+        with:
+          repository: QuantumGamingHub/repository-2
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: 📝 Update deployment configuration
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -i '.image.tag = "${{ steps.build.outputs.metadata.tags }}"' ./environments/${{ github.event.inputs.environment }}/core/api-backend-values.yaml
+
+      - name: Generate PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "release(${{ github.event.inputs.environment }}): Update api-backend image tag to ${{ steps.build.outputs.metadata.tags }}"
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
+          branch: release/${{ github.event.inputs.environment }}-${{ github.run_id }}
+          delete-branch: true
+          title: "[${{ github.event.inputs.environment }}][core] Update api-backend image tag"
+          body: "This PR updates the api-backend image tag to ${{ steps.build.outputs.metadata.tags }}."
