@@ -21,6 +21,9 @@ on:
         default: 'main'
         type: string
 
+env:
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'sandbox' }}
+
 
 jobs:
   build:
@@ -68,16 +71,16 @@ jobs:
       - name: 📝 Update deployment configuration
         uses: mikefarah/yq@master
         with:
-          cmd: yq -i '.image.tag = "${{ needs.build.outputs.version }}"' ./environments/${{ github.event.inputs.environment }}/core/api-backend-values.yaml
+          cmd: yq -i '.image.tag = "${{ needs.build.outputs.version }}"' ./environments/${{ env.ENVIRONMENT }}/core/api-backend-values.yaml
 
       - name: Generate PR
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ steps.app-token.outputs.token }}
-          commit-message: "release(${{ github.event.inputs.environment }}): Update api-backend image tag to ${{ needs.build.outputs.version }}"
+          commit-message: "release(${{ env.ENVIRONMENT }}): Update api-backend image tag to ${{ needs.build.outputs.version }}"
           committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
-          branch: release/${{ github.event.inputs.environment }}-${{ github.run_id }}
+          branch: release/${{ env.ENVIRONMENT }}-${{ github.run_id }}
           delete-branch: true
-          title: "[${{ github.event.inputs.environment }}][core] Update api-backend image tag"
+          title: "[${{ env.ENVIRONMENT }}][core] Update api-backend image tag"
           body: "This PR updates the api-backend image tag to ${{ needs.build.outputs.version }}."
